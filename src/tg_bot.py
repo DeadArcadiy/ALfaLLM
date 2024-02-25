@@ -1,30 +1,31 @@
 from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
-from transformers import pipeline
+from telegram.ext import *
+from transformers import pipeline,BitsAndBytesConfig
+import torch
+import asyncio
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Привет! Я бот Альфа Банка, который ответит на ваши вопросы')
+pipe = pipeline("text-generation", model="DeadArcadiy/AlfaLLM_FINAL",torch_dtype=torch.bfloat16, device_map={"": 0})
 
-def reply_to_text(update: Update, context: CallbackContext) -> None:
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text('Привет! Я бот Альфа Банка, который ответит на ваши вопросы')
+
+async def reply_to_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Генерирует ответ на полученное текстовое сообщение."""
     user_message = update.message.text
     # Генерация ответа моделью
     model_response = pipe(f"<s>[INST] {user_message} [/INST]")
-    update.message.reply_text(model_response)
-
+    await update.message.reply_text(model_response)
 
 if __name__ == '__main__':
-    pipe = pipeline("text-generation", model="DeadArcadiy/AlfaLLM_FINAL")
-   
-    TOKEN = None
+  TOKEN = None
 
-    with open("../token.txt") as f:
-       TOKEN = f.read().strip()
+  with open("token.txt") as f:
+      TOKEN = f.read().strip()
 
-    updater = Updater(TOKEN)
+  application = ApplicationBuilder().token(TOKEN).build()
 
-    dispatcher = updater.dispatcher
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(MessageHandler(filters.text & ~filters.command, reply_to_text))
+  application.add_handler(CommandHandler("start", start))
+  application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, reply_to_text))
 
-    updater.start_polling()
-    updater.idle()
+
+  application.run_polling(0.1)
